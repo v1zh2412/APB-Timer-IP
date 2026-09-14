@@ -1,0 +1,25 @@
+# Xcelium / SimVision
+xcelium.d/
+INCA_libs/
+*.shm/
+.simvision/
+xrun.log
+xrun.history
+*.key
+*.diag
+xrun_wave.tcl
+
+# QuestaSim
+work/
+modelsim.ini
+transcript
+vsim.wlf
+vsim.dbg/
+*.ucdb
+covhtmlreport/
+coverage/
+
+# sinh ra lúc chạy
+log/
+*.log
+run_test.v
