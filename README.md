@@ -219,30 +219,6 @@ make help
 Useful variables: `TESTNAME` (testcase file name without extension), `TB_NAME` (testbench
 top module), `FILELIST` (compile file list), `WAVE_DB` (waveform database name).
 
----
-
-## Verification
-
-| Area | Testcase | Status |
-|---|---|---|
-| Register reset values | | |
-| Register read/write, reserved area RAZ/WI | | |
-| Byte access with all strobe combinations | | |
-| Wait state and APB protocol timing | | |
-| Error response on prohibited `div_val` | | |
-| Error response on `div_en`/`div_val` change while running | | |
-| Default counting mode | | |
-| Control mode, all `div_val` values | | |
-| Counter preload through TDR0/TDR1 | | |
-| Counter clear on `timer_en` 1→0 | | |
-| Interrupt set / mask / write-1-to-clear | | |
-| Counter behaviour after a compare match | | |
-| Halt and resume in debug mode | | |
-
-Coverage report: `sim/coverage/`.
-
----
-
 ## References
 
 - CLINT specification used as the starting point for the register set:
