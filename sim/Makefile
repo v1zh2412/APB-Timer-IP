@@ -1,140 +1,94 @@
-##############################################################################
-# Compile + simulate : Cadence Xcelium (xrun)
-# Waveform viewer    : SimVision
-# Coverage           : QuestaSim (vlog / vsim / vcover)
-#
-# Based on the original QuestaSim makefile by Huy Nguyen (6/30/2019)
-# Example run string: make TESTNAME={name_of_testcase} {optional}
-#                     make TESTNAME=counter_test all
-##############################################################################
-
-#=============================================================================
-# Variables
-#=============================================================================
-TESTNAME	?= reg_init_chk
+##################################################################################################
+#This file created by Huy Nguyen
+#Updated date: 6/30/2019
+#Example run string: make TESTNAME={name_of_testcase} {optional}
+#                    make TESTNAME=counter_test all
+##################################################################################################
+#Define variables
+TESTNAME	?= reg_init
 TB_NAME		?= test_bench
 RADIX		?= decimal
 REGRESS_LIST	?= pat.list
-FILELIST	?= compile.f
 
-#---- Xcelium ---------------------------------------------------------------
-XRUN		 = xrun
-XRUN_ARCH	?= -64bit
-XRUN_LANG	?= -sv
-XRUN_ACCESS	?= -access +rwc
-XRUN_TS		?= -timescale 1ns/1ps
-XRUN_OPTS	?= $(XRUN_ARCH) $(XRUN_LANG) $(XRUN_ACCESS) $(XRUN_TS)
-
-XRUN_LIB	 = xcelium.d
-WAVE_DB		?= waves.shm
-WAVE_TCL	 = xrun_wave.tcl
-
-#---- QuestaSim (coverage flow only) ----------------------------------------
-VLOG		 = vlog
-VSIM		 = vsim
-VCOVER		 = vcover
-COV_OPT		?= bcesft
-
-#=============================================================================
-.PHONY: all all_wave all_cov prep build run run_wave wave gui \
-	build_cov run_cov gen_cov gen_html clean help $(WAVE_TCL)
-
+#==============================
 all: build run
 
-all_wave: build run_wave wave
+all_wave: build run wave
 
 all_cov: build_cov run_cov
 
-# Common preparation
-prep:
+build:
 	mkdir -p log
 	cp -rf ../testcases/$(TESTNAME).v run_test.v
-
-build: prep
-	$(XRUN) -elaborate $(XRUN_OPTS) -f $(FILELIST) -top $(TB_NAME) -l compile.log
-	cp compile.log ./log
-
-run:
-	$(XRUN) -R -l $(TESTNAME).log
-	cp $(TESTNAME).log ./log
-	mv $(TESTNAME).log sim.log
-
-run_wave: $(WAVE_TCL)
-	$(XRUN) -R -l $(TESTNAME).log -input $(WAVE_TCL)
-	cp $(TESTNAME).log ./log
-	mv $(TESTNAME).log sim.log
-
-$(WAVE_TCL):
-	@echo 'database -open -shm -into $(WAVE_DB) waves -default'		 > $(WAVE_TCL)
-	@echo 'probe -create -database waves $(TB_NAME) -depth all -all'	>> $(WAVE_TCL)
-	@echo 'run'								>> $(WAVE_TCL)
-	@echo 'exit'								>> $(WAVE_TCL)
-
-wave:
-	simvision $(WAVE_DB) &
-
-# Interactive debug: elaborate snapshot loaded directly into SimVision
-gui:
-	$(XRUN) -R -gui &
-
-build_cov: prep
 	vlib work
 	vmap work work
-	$(VLOG) +cover=$(COV_OPT) -f $(FILELIST) | tee compile_cov.log
-
-run_cov:
-	$(VSIM) -coverage -l $(TESTNAME).log -c $(TB_NAME) -voptargs="+access+cover=$(COV_OPT)" \
-		-assertdebug -do "coverage save -onexit $(TESTNAME).ucdb; log -r /*;run -all"
+	vlog  -f compile.f | tee compile.log
+build_cov:
+	mkdir -p log
+	cp -rf ../testcases/$(TESTNAME).v run_test.v
+	vlib work
+	vmap work work
+	vlog +cover=bcesft -f compile.f
+run:
+	vsim -debugDB -l $(TESTNAME).log -voptargs=+access -assertdebug -c $(TB_NAME) -do "log -r /*;run -all;"
 	cp $(TESTNAME).log ./log
-	mv $(TESTNAME).log sim_cov.log
-
+	mv $(TESTNAME).log sim.log
+run_cov:
+	vsim -debugDB -coverage -l $(TESTNAME).log -c $(TB_NAME) -voptargs="+access+cover=bcesft" -assertdebug -do "coverage save -onexit $(TESTNAME).ucdb; log -r /*;run -all"
+	cp $(TESTNAME).log ./log
+	mv $(TESTNAME).log sim.log
+wave:
+	vsim -i -view vsim.wlf -do "add wave vsim:/$(TB_NAME)/*; radix -$(RADIX)" &
 gen_cov:
 	mkdir -p coverage
-	$(VCOVER) merge IP.ucdb *.ucdb
-	$(VCOVER) report IP.ucdb -output coverage/summary_report.txt
-	$(VCOVER) report -zeros -details -code $(COV_OPT) -annotate -All -codeAll IP.ucdb -output coverage/detail_report.txt
-
+	vcover merge IP.ucdb *.ucdb
+	vcover report IP.ucdb -output coverage/summary_report.txt
+	vcover report -zeros -details -code bcesft -annotate -All -codeAll IP.ucdb -output coverage/detail_report.txt
+	#vcover report -zeros -details -code bcesft -All -codeAll IP.ucdb -output coverage/detail_report.txt
+view_cov:
+	vsim -gui -viewcov IP.ucdb &
 gen_html:
 	mkdir -p coverage
-	$(VCOVER) merge IP.ucdb *.ucdb
-	$(VCOVER) report -zeros -details -code $(COV_OPT) -annotate -testhitdataAll -html IP.ucdb
-
+	vcover merge IP.ucdb *.ucdb
+	vcover report -zeros -details -code bcesft -annotate -testhitdataAll -html IP.ucdb
 clean:
-	# Xcelium / SimVision
-	rm -rf $(XRUN_LIB)
-	rm -rf $(WAVE_DB)
-	rm -rf $(WAVE_TCL)
-	rm -rf .simvision
-	rm -rf xrun.history xrun.log
-	rm -rf *.key *.diag *.err
-	rm -rf waves.shm.dir
-	# QuestaSim
 	rm -rf work
 	rm -rf vsim.dbg
 	rm -rf *.ini
+	rm -rf *.log
 	rm -rf *.wlf
 	rm -rf transcript
 	rm -rf *.ucdb
-	rm -rf covhtmlreport
-	# common
-	rm -rf *.log
 	rm -rf run_test.v
-
+apb:
+	make all TESTNAME=apb_multiple_access
+	make all TESTNAME=apb_protocol_chk
+	make all TESTNAME=apb_pslverr_chk
+	make all TESTNAME=apb_unaligned
+cnt:
+	make all TESTNAME=cnt_counting_chk
+	make all TESTNAME=cnt_ctrl_chk
+	make all TESTNAME=cnt_halt_chk
+reg:
+	make all TESTNAME=reg_1hot_chk
+	make all TESTNAME=reg_byte_access
+	make all TESTNAME=reg_init_chk
+	make all TESTNAME=reg_reserved_chk
+	make all TESTNAME=reg_rw_chk
+interrupt:
+	make all TESTNAME=interrupt_chk
 help:
 	@echo ""
 	@echo "****************************************"
-	@echo "*** make build     : compile + elaborate with Xcelium"
-	@echo "*** make run       : run simulation with Xcelium (no waveform)"
-	@echo "*** make run_wave  : run simulation and dump SHM waveform"
-	@echo "*** make wave      : open $(WAVE_DB) in SimVision"
-	@echo "*** make gui       : load the snapshot into SimVision interactively"
-	@echo "*** make all       : build and run"
-	@echo "*** make all_wave  : build, run with dump, open SimVision"
-	@echo "*** make build_cov : compile in coverage mode with QuestaSim"
-	@echo "*** make run_cov   : run simulation in coverage mode with QuestaSim"
-	@echo "*** make all_cov   : build and run in coverage mode (QuestaSim)"
-	@echo "*** make gen_cov   : merge, generate coverage data base and text report"
-	@echo "*** make gen_html  : merge, generate coverage data base and html report"
-	@echo "*** make clean     : clean all compiled data"
+	@echo "** make clean    : clean all compiled data"
+	@echo "** make build    : build the design"
+	@echo "** make build_cov: build the design in coverage mode"
+	@echo "** make run      : run simulation"
+	@echo "** make run_cov  : run simulation in coverage mode"
+	@echo "** make all      : build and run simulation"
+	@echo "** make all_cov  : build and run simulation in coverage mode"
+	@echo "** make wave     : open waveform"
+	@echo "** make gen_cov  : merge, generate coverage data base and text coverage report"
+	@echo "** make gen_cov  : merge, gemerate coverage data base and html coverage report"
 	@echo "****************************************"
 	@echo ""

@@ -1,1 +1,10 @@
-// ten test
+reg_rw
+reg_init
+reg_slverr
+cnt_def
+cnt_ctrl
+interrupt
+debug_mode
+strobe
+address
+toggle_cov
